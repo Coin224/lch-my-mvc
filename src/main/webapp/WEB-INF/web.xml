@@ -8,7 +8,7 @@
 
   <servlet>
     <servlet-name>xxx</servlet-name>
-    <servlet-class>com.lch.servlet.DispatcherServlet</servlet-class>
+    <servlet-class>com.lch.webmvc.DispatcherServlet</servlet-class>
   </servlet>
   <servlet-mapping>
     <!--拦截所有请求，让所有请求都去找到dispatcherServlet-->

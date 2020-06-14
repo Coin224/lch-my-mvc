@@ -1,6 +1,3 @@
-package com.lch.controller;
-
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 

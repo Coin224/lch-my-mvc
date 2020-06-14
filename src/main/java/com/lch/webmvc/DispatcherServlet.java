@@ -1,4 +1,4 @@
-package com.lch.servlet;
+package com.lch.webmvc;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -25,6 +25,7 @@ public class DispatcherServlet extends HttpServlet {
     private static Map<String,String> realClassNameMap = new HashMap<>();
 
 
+    // 这个集合用来存储执行方法的controller类对象 生命周期托管式来保证单例
     private static Map<String,Object> objectMap = new HashMap<>();
 
     static {
@@ -44,31 +45,50 @@ public class DispatcherServlet extends HttpServlet {
     }
 
 
+    // 解析uri 得到类名字
+    private String parseUri(String uri) {
+        return uri.substring(uri.lastIndexOf("/")+1,uri.indexOf("."));
+    }
+
+    // 获取需要执行方法的类
+    private Object getObject(String requestName) throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        // 2.通过类名字和配置文件找到类全名 applicationContext.properties
+        String realClassName = realClassNameMap.get(requestName);
+        // 先从map中获取对象 如果没有 再去反射创建对象
+        Class clazz = Class.forName(realClassName);
+        Object obj = objectMap.get(realClassName);
+        if (obj == null) {
+            synchronized (DispatcherServlet.class) {
+                if (obj == null) {
+                    obj = clazz.newInstance();
+                    objectMap.put(realClassName, obj);
+                }
+            }
+        }
+        return obj;
+    }
+
+
+    private Method getMethod(Object obj ,String methodName) throws NoSuchMethodException {
+        Class clazz = obj.getClass();
+        return clazz.getMethod(methodName,HttpServletRequest.class,HttpServletResponse.class);
+    }
+
     @Override
     protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         try {
             // 1.获取请求的uri、得到类名字   约定请求的url：类名字.do?method=方法名字
             String uri = req.getRequestURI();
-            String requestName = uri.substring(uri.lastIndexOf("/")+1,uri.indexOf("."));
-            System.out.println(requestName);
-            // 2.通过类名字和配置文件找到类全名 applicationContext.properties
-            String realClassName = realClassNameMap.get(requestName);
+            String requestName = this.parseUri(uri);
 
-            // 先从map中获取对象 如果没有 再去反射创建对象
-            Class clazz = Class.forName(realClassName);
-            Object obj = objectMap.get(realClassName);
-            if (obj == null) {
-                synchronized (DispatcherServlet.class) {
-                    if (obj == null) {
-                        obj = clazz.newInstance();
-                        objectMap.put(realClassName, obj);
-                    }
-                }
-            }
+            // 2.获取对象
+           Object obj = this.getObject(requestName);
+
             // 3.获取方法的名字 反射找到执行的方法、调用service层的方法处理数据
             String methodName = req.getParameter("method");
-            Method method = clazz.getMethod(methodName,HttpServletRequest.class,HttpServletResponse.class);
-            // 返回一个路径
+           Method method = this.getMethod(obj,methodName);
+
+            // 4.执行方法，返回一个路径
             String path = (String) method.invoke(obj,req,resp);
             // 4.响应信息
             req.getRequestDispatcher(path).forward(req,resp);
